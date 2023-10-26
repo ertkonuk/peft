@@ -18,7 +18,7 @@ mbs=1
 max_steps=2000
 val_check=100
 save_steps=500
-max_seq_length=2048
+max_seq_len=2048
 
 # force crashing on nccl issues like hanging broadcast
 export NCCL_ASYNC_ERROR_HANDLING=1
@@ -35,8 +35,8 @@ GPUS_PER_NODE=${SLURM_NTASKS_PER_NODE}
 NNODES=${SLURM_JOB_NUM_NODES}
 NUM_PROCESSES=$(expr $NNODES \* $GPUS_PER_NODE)
 
-grad_accum_steps=$(expr $gbs \/ $mbs) $(expr $gbs \/ $(expr $mbs \* $NUM_PROCESSES))
-
+#grad_accum_steps=$(expr $gbs \/ $mbs) $(expr $gbs \/ $(expr $mbs \* $NUM_PROCESSES))
+grad_accum_steps=4
 # We will need this for 70B model training
 #export LAUNCHER="accelerate launch \
 #    --config_file configs/fsdp_config.yaml \
