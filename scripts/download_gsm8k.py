@@ -1,5 +1,9 @@
 from datasets import load_dataset
 import json
+subset="gsm8k_main"
+isExist = os.path.exists(subset)
+if not isExist:
+    os.makedirs(subset)
 
 main_dataset = load_dataset("gsm8k", "main")
 
@@ -19,7 +23,7 @@ for split in splits:
         
 
 for split_name, dataset in save_splits.items():
-    output_file = f"gsm8k_{split_name}.jsonl"
+    output_file = f"{subset}/{split_name}.jsonl"
 
 
     with open(output_file, "w", encoding="utf-8") as f:

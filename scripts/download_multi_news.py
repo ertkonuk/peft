@@ -1,7 +1,8 @@
 from datasets import load_dataset
 import json
 
-main_dataset = load_dataset("multi_news")
+folder="multi_news"
+main_dataset = load_dataset(folder)
 
 # Loop through the splits and save them as JSONL files
 splits= ["train", "test", "validation"]
@@ -13,7 +14,7 @@ for split in splits:
     save_splits[split] = dataset
 
 for split_name, dataset in save_splits.items():
-    output_file = f"multi_news_{split_name}.jsonl"
+    output_file = f"{folder}/{split_name}.jsonl"
 
 
     with open(output_file, "w", encoding="utf-8") as f:

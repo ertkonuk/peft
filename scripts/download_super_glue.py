@@ -2,10 +2,14 @@ from datasets import load_dataset
 import json
 import random
 import math
+import os
 
 subsets =  ['boolq', 'cb', 'copa', 'multirc', 'record', 'rte', 'wic', 'wsc', 'wsc.fixed', 'axb', 'axg']
 for subset in subsets:
     main_dataset = load_dataset("super_glue", subset)
+    isExist = os.path.exists(subset)
+    if not isExist:
+        os.makedirs(subset)
 
     # Loop through the splits and save them as JSONL files
     splits= ["train", "test", "validation"]
@@ -26,7 +30,7 @@ for subset in subsets:
             
 
     for split_name, dataset in save_splits.items():
-        output_file = f"{subset}_{split_name}.jsonl"
+        output_file = f"{subset}/{split_name}.jsonl"
 
 
         with open(output_file, "w", encoding="utf-8") as f:

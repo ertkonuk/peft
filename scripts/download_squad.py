@@ -2,6 +2,10 @@ from datasets import load_dataset
 import json
 
 main_dataset = load_dataset("squad")
+subset="squad"
+isExist = os.path.exists(subset)
+if not isExist:
+    os.makedirs(subset)
 
 # Loop through the splits and save them as JSONL files
 splits= ["train", "validation"]
@@ -21,7 +25,7 @@ for split in splits:
         
 
 for split_name, dataset in save_splits.items():
-    output_file = f"squad_{split_name}.jsonl"
+    output_file = f"squad/{split_name}.jsonl"
 
 
     with open(output_file, "w", encoding="utf-8") as f:
