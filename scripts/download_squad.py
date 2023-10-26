@@ -34,6 +34,7 @@ for split_name, dataset in save_splits.items():
             # Write each example as a JSON line in the output file
             example["input"] = "Context: " + example["context"] + " Question: " + example['question'] + " Answer:"
             example["output"] = example["answers"]["text"][0]
+            example["original_answers"] = example["answers"]["text"]
             f.write(json.dumps(example)  + "\n")
 
     print(f"{split_name} split saved to {output_file}")

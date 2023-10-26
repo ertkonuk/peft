@@ -7,13 +7,20 @@ import os
 def converted_example(e, s, t):
     if s in t:
         inputs = t[s][0]
-        ouputs = t[s][1]
+        outputs = t[s][1]
         ce = ""
         for i in inputs.split():
             ce = ce + i + ": " + str(e[i]) + " "
         ce = ce.strip()
         ce = ce + " answer:"
-        oce = str(e[ouputs])
+        if isinstance(e[outputs], list):
+            if len(e[outputs]) > 0:
+                oce = str(e[outputs][0])
+            else:
+                oce = ""
+            e["original_answers"] = e[outputs]
+        else:
+            oce = str(e[outputs])
         e["input"] = ce
         e["output"] = oce
         return e
@@ -21,6 +28,7 @@ def converted_example(e, s, t):
         return e
 
 templates = {"boolq": ["passage question", "label"],
+            "record": ["passage query", "answers"],
             "cb": ["premise hypothesis", "label"],
             "copa": ["premise choice1 choice2 question", "label"],
             "multirc": ["paragraph question", "answer"],
