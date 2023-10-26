@@ -1,5 +1,6 @@
 from datasets import load_dataset
 import json
+import os
 
 main_dataset = load_dataset("pib", "en-ta")
 isExist = os.path.exists("pib_en_ta")
@@ -27,7 +28,10 @@ for split_name, dataset in save_splits.items():
     with open(output_file, "w", encoding="utf-8") as f:
         for example in dataset:
             # Write each example as a JSON line in the output file
-            f.write(json.dumps(example['translation'])  + "\n")
+            e = {}
+            e['input'] = 'en: ' + example['translation']['en'] + ' ta:'
+            e['output'] = example['translation']['ta']
+            f.write(json.dumps(e)  + "\n")
 
     print(f"{split_name} split saved to {output_file}")
 

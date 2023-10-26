@@ -1,5 +1,7 @@
 from datasets import load_dataset
 import json
+import os
+
 subset="gsm8k_main"
 isExist = os.path.exists(subset)
 if not isExist:
@@ -29,7 +31,10 @@ for split_name, dataset in save_splits.items():
     with open(output_file, "w", encoding="utf-8") as f:
         for example in dataset:
             # Write each example as a JSON line in the output file
-            f.write(json.dumps(example)  + "\n")
+            e= {}
+            e['input'] = example["question"] + " Answer:"
+            e['output'] = example['answer']
+            f.write(json.dumps(e)  + "\n")
 
     print(f"{split_name} split saved to {output_file}")
 

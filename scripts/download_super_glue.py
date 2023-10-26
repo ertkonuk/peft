@@ -4,8 +4,35 @@ import random
 import math
 import os
 
+def converted_example(e, s, t):
+    if s in t:
+        inputs = t[s][0]
+        ouputs = t[s][1]
+        ce = ""
+        for i in inputs.split():
+            ce = ce + i + ": " + str(e[i]) + " "
+        ce = ce.strip()
+        ce = ce + " answer:"
+        oce = str(e[ouputs])
+        e["input"] = ce
+        e["output"] = oce
+        return e
+    else:
+        return e
+
+templates = {"boolq": ["passage question", "label"],
+            "cb": ["premise hypothesis", "label"],
+            "copa": ["premise choice1 choice2 question", "label"],
+            "multirc": ["paragraph question", "answer"],
+            "rte": ["premise hypothesis", "label"],
+            "wic": ["word sentence1 sentence2", "label"],
+            "wsc": ["text span1_index span1_text span2_index span2_text", "label"],
+            "wsc.fixed": ["text span1_index span1_text span2_index span2_text", "label"]}
+#TODO: template for record
+
 subsets =  ['boolq', 'cb', 'copa', 'multirc', 'record', 'rte', 'wic', 'wsc', 'wsc.fixed', 'axb', 'axg']
 for subset in subsets:
+    print(subset)
     main_dataset = load_dataset("super_glue", subset)
     isExist = os.path.exists(subset)
     if not isExist:
@@ -36,7 +63,8 @@ for subset in subsets:
         with open(output_file, "w", encoding="utf-8") as f:
             for example in dataset:
                 # Write each example as a JSON line in the output file
-                f.write(json.dumps(example)  + "\n")
+                ce = converted_example(example, subset, templates)
+                f.write(json.dumps(ce)  + "\n")
 
         print(f"{split_name} split saved to {output_file}")
 
