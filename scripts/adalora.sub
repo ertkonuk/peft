@@ -55,7 +55,6 @@ echo "*******STARTING********" \
 && huggingface-cli login --token ${HF_TOKEN} \ 
 && export WANDB_API_KEY=${WANDB} \
 && cd /code \
-&& pip install . \
 && echo "Starting training" \
 && ${LAUNCHER} \ 
 --model_name=${model_name} \
