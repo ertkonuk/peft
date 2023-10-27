@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -A llmservice_modelalignment_ptune
-#SBATCH -p batch_block2 # luna / backfill / interactive
+#SBATCH -p batch_singlenode,batch_block1,batch_block3,batch_block2 # luna / backfill / interactive
 #SBATCH -N 1                   # number of nodes
 #SBATCH -t 4:00:00              # wall time  (4 for luna, 8 for backfill, 2 for interactive)
 #SBATCH -J llmservice_modelalignment_ptune:peft.lora.llama-2-7b-hf-boolq  # job name (<< CHANGE ! >>)
@@ -11,8 +11,8 @@ source containers.sh
 export HYDRA_FULL_ERROR=1
 
 # training params
-model_name=$1
-task=$2
+model_name="meta-llama/Llama-2-7b-hf"
+task="boolq"
 gbs=128
 mbs=1
 max_steps=2000
@@ -50,10 +50,9 @@ export LAUNCHER="python"
 
 read -r -d '' cmd <<EOF
 echo "*******STARTING********" \
-&& pip install -r /requirements/requirements.txt \
 && huggingface-cli login --token ${HF_TOKEN} \ 
 && export WANDB_API_KEY=${WANDB} \
-&& cd /code \
+&& cd /code/peft/scripts \
 && echo "Starting training" \
 && python train.py \
 --model_name=${model_name} \
@@ -84,7 +83,8 @@ echo "*******STARTING********" \
 --use_4bit_quantization False \
 --use_nested_quant True \
 --bnb_4bit_compute_dtype "bfloat16" \
---use_flash_attn False
+--use_flash_attn True \
+--optim adamw_torch 
 EOF
 
 echo $cmd

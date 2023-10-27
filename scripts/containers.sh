@@ -7,19 +7,13 @@
 #
 # @description : file with holds all the paths required for docker containers
 ######################################################################
-WANDB=""
-HF_TOKEN=""
 
-CONTAINER="nvcr.io/nvidia/pytorch:23.09-py3"
-USER=tkonuk
-PROJHOME="/lustre/fsw/portfolios/llmservice/users/${USER}/tied-lora"
+source tokens.sh
+CONTAINER="${TKHOME}/pytorch_2309_hf.sqsh"
 CODE="$PROJHOME/code:/code/"
 DATASETS="$PROJHOME/datasets:/datasets"
-MODELS="$PROJHOME/trained_models:/trained_models,$PROJHOME/pretrained_models:/pretrained_models"
 
-HF_CACHE_DIR="$PROJHOME/huggingface/hub:/hub"
-REQS="$PROJHOME/requirements.txt:/requirements/requirements.txt"
+HF_CACHE_DIR="$TKHOME/huggingface/hub:/hub"
 EXPERIMENTS="$PROJHOME/experiments:/experiments"
-SCRIPTS="$PROJHOME/launch_scripts:/launch_scripts,$PROJHOME/eval_scripts:/eval_scripts"
 
-MOUNTS="--container-mounts=$CODE,$DATASETS,$MODELS,$EXPERIMENTS,$SCRIPTS,$REQS,$HF_CACHE_DIR"
+MOUNTS="--container-mounts=$CODE,$DATASETS,$EXPERIMENTS,$HF_CACHE_DIR"
