@@ -50,7 +50,7 @@ export LAUNCHER="python"
 
 read -r -d '' cmd <<EOF
 echo "*******STARTING********" \
-&& huggingface-cli login --token ${HF_TOKEN} \ 
+&& huggingface-cli login --token ${HF_TOKEN} \
 && export WANDB_API_KEY=${WANDB} \
 && cd /code/peft/scripts \
 && echo "Starting training" \
@@ -67,7 +67,7 @@ echo "*******STARTING********" \
 --bf16=True \
 --packing=True \
 --output_dir=${DOCKER_EXP_DIR}/training \
---per_device_train_batch_size {mbs} \
+--per_device_train_batch_size ${mbs} \
 --gradient_accumulation_steps ${grad_accum_steps} \
 --use_peft_adalora True \
 --adalora_init_r 12 \
