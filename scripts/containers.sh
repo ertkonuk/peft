@@ -9,7 +9,7 @@
 ######################################################################
 
 source tokens.sh
-CONTAINER="${TKHOME}/pytorch_2309_hf.sqsh"
+CONTAINER="${TKHOME}/pytorch_2309_hf_fa2.sqsh"
 CODE="$PROJHOME/code:/code/"
 DATASETS="$PROJHOME/datasets:/datasets"
 
