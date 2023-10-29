@@ -140,3 +140,4 @@ dmypy.json
 # More test things
 wandb
 tokens.sh
+slurm-*
