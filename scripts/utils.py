@@ -273,9 +273,9 @@ def create_and_prepare_model(args):
     if args.use_4bit_quantization or args.use_8bit_quantization:
         device_map = "auto"  # {"": 0}
     
-    #from accelerate import Accelerator
-    #device_index = Accelerator().process_index
-    #device_map = {"": device_index}
+    from accelerate import Accelerator
+    device_index = Accelerator().process_index
+    device_map = {"": device_index}
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         load_in_8bit=load_in_8bit,
@@ -285,6 +285,7 @@ def create_and_prepare_model(args):
         use_auth_token=True,
         use_flash_attention_2=args.use_flash_attn,
         cache_dir=args.cache_dir,
+        torch_dtype=torch.bfloat16 if args.bf16 else torch.float16,
     )
 
     peft_config = None
@@ -295,7 +296,6 @@ def create_and_prepare_model(args):
             lora_dropout=args.lora_dropout,
             r=args.lora_r,
             bias="none",
-            task_type="CAUSAL_LM",
             target_modules=args.lora_target_modules.split(","),
         )
     elif args.use_peft_adalora:
@@ -313,6 +313,8 @@ def create_and_prepare_model(args):
             target_modules=args.lora_target_modules.split(","),
             orth_reg_weight=args.adalora_orth_reg_weight,
         )
+    else:
+        peft_config = None
     if (args.use_4bit_quantization or args.use_8bit_quantization) and args.use_peft_lora:
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=args.use_gradient_checkpointing)
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -A llmservice_modelalignment_ptune
-#SBATCH -p batch_singlenode,batch_block1,batch_block3,batch_block2 # luna / backfill / interactive
+#SBATCH -p batch_singlenode,batch_block1,batch_block3,batch_block2,batch_block4 # luna / backfill / interactive
 #SBATCH -N 1                   # number of nodes
 #SBATCH -t 4:00:00              # wall time  (4 for luna, 8 for backfill, 2 for interactive)
 #SBATCH -J llmservice_modelalignment_ptune:peft.lora.llama-2-7b-hf-boolq  # job name (<< CHANGE ! >>)
@@ -71,7 +71,7 @@ echo "*******STARTING********" \
 --cache_dir=/hub \
 --max_seq_len=${max_seq_len} \
 --max_steps=${max_steps} \
---logging_steps=25 \
+--logging_steps=1 \
 --eval_steps=${val_check} \
 --save_steps=${save_steps} \
 --bf16=True \
@@ -85,10 +85,10 @@ echo "*******STARTING********" \
 --lora_dropout 0.1 \
 --lora_qkv_mlp_dense \
 --use_4bit_quantization False \
---use_nested_quant True \
+--use_nested_quant False \
 --bnb_4bit_compute_dtype "bfloat16" \
 --use_flash_attn False \
---optim adamw_torch 
+--optim adamw_torch
 EOF
 
 echo $cmd
