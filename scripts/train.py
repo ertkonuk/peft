@@ -64,7 +64,7 @@ class ScriptArguments:
         metadata={"help": "Activate nested quantization for 4bit base models"},
     )
     bnb_4bit_compute_dtype: Optional[str] = field(
-        default="float16",
+        default="bfloat16",
         metadata={"help": "Compute dtype for 4bit base models"},
     )
     bnb_4bit_quant_type: Optional[str] = field(
@@ -105,6 +105,7 @@ class ScriptArguments:
     eval_steps: int = field(default=10, metadata={"help": "Eval model every X steps."})
     logging_steps: int = field(default=10, metadata={"help": "Log every X updates steps."})
     output_dir: str = field(default="results", metadata={"help": "Where to store the final model."})
+    wandb_run_name: str = field(default="draco_oci.llama_2_7b.lora", metadata={"help": "The name of the wandb job."})
     use_flash_attn: Optional[bool] = field(
         default=False,
         metadata={"help": "Enables Flash attention for training."},
@@ -246,6 +247,7 @@ def main(args):
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
         label_names=["labels"],
+        run_name=args.wandb_run_name,
     )
 
     # model
