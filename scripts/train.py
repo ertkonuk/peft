@@ -264,13 +264,13 @@ def main(args):
     # trainer
     trainer = Trainer(model=model, args=training_arguments, train_dataset=train_dataset, eval_dataset=eval_dataset, data_collator=data_collator)
     trainer.accelerator.print(f"{trainer.model}")
-    if args.use_peft_lora:
+    if args.use_peft_lora or args.use_peft_adalora:
         trainer.model.print_trainable_parameters()
 
     if is_deepspeed_peft_enabled:
         trainer.add_callback(SaveDeepSpeedPeftModelCallback(trainer, save_steps=args.save_steps))
 
-    if args.use_peft_lora:
+    if args.use_peft_lora or args.use_peft_adalora:
         peft_module_casting_to_bf16(trainer.model, args)
 
     # train

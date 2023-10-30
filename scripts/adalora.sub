@@ -23,7 +23,7 @@ max_seq_len=2048
 # force crashing on nccl issues like hanging broadcast
 export NCCL_ASYNC_ERROR_HANDLING=1
 
-proj_name="${scheme}_lora"
+proj_name="${task}_lora"
 exp_name=`echo $SLURM_JOB_NAME | cut -d':' -f2-`
 DATE=$(date "+%Y-%m-%d_%H-%M-%S")
 DOCKER_EXP_DIR="/experiments/${proj_name}/${exp_name}/${DATE}"
@@ -83,7 +83,7 @@ echo "*******STARTING********" \
 --use_4bit_quantization False \
 --use_nested_quant True \
 --bnb_4bit_compute_dtype "bfloat16" \
---use_flash_attn True \
+--use_flash_attn False \
 --optim adamw_torch 
 EOF
 
