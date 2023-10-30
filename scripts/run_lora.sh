@@ -1,23 +1,31 @@
+task=copa
 torchrun --nproc_per_node=8 train.py \
---model_name "meta-llama/Llama-2-7b-hf" \
---train_ds "/workspace/mount_dir/tied-lora/peft/scripts/boolq/train.jsonl" \
---validation_ds "/workspace/mount_dir/tied-lora/peft/scripts/boolq/validation.jsonl" \
---cache_dir "/workspace/mount_dir/tied-lora/huggingface/hub" \
---max_seq_len 2048 \
---max_steps 1000 \
---logging_steps 25 \
---eval_steps 100 \
---save_steps 500 \
---bf16 True \
---packing True \
---output_dir "peft-lora-llama-2-7b-hf-squad-v1" \
---per_device_train_batch_size 1 \
---gradient_accumulation_steps 16 \
+--model_name="meta-llama/Llama-2-7b-hf" \
+--train_ds=/workspace/mount_dir/tied-lora/datasets/${task}/train.jsonl \
+--validation_ds=/workspace/mount_dir/tied-lora/datasets/${task}/validation.jsonl \
+--cache_dir=/workspace/mount_dir/tied-lora/huggingface/hub/ \
+--max_seq_len=2048 \
+--max_steps=2000 \
+--learning_rate 1e-4 \
+--lr_scheduler_type "cosine" \
+--warmup_steps 50 \
+--max_grad_norm=1 \
+--logging_steps=1 \
+--eval_steps=10 \
+--bf16=True \
+--save_steps=10 \
+--weight_decay 0.01 \
+--packing=True \
+--output_dir=/workspace/mount_dir/tied-lora/experiments/${task}_lora/interactive \
+--per_device_train_batch_size=1 \
+--gradient_accumulation_steps=1 \
 --use_peft_lora True \
---lora_r 16 \
---lora_alpha 32 \
---lora_target_modules "q_proj,v_proj" \
+--lora_r 32 \
+--lora_alpha 1 \
+--lora_dropout 0. \
+--lora_qkv_mlp_dense \
 --use_4bit_quantization False \
---use_nested_quant True \
+--use_nested_quant False \
 --bnb_4bit_compute_dtype "bfloat16" \
---use_flash_attn False
+--use_flash_attn True \
+--optim adamw_torch_fused

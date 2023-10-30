@@ -16,8 +16,7 @@ from dataclasses import dataclass, field
 import os
 import subprocess
 from typing import Optional
-
-from transformers import HfArgumentParser, TrainingArguments, Trainer, DataCollatorForSeq2Seq
+from transformers import HfArgumentParser, TrainingArguments, Trainer, DataCollatorForSeq2Seq, EarlyStoppingCallback
 from utils import *
 
 ########################################################################
@@ -42,7 +41,7 @@ class ScriptArguments:
     per_device_train_batch_size: Optional[int] = field(default=4)
     per_device_eval_batch_size: Optional[int] = field(default=1)
     gradient_accumulation_steps: Optional[int] = field(default=4)
-    learning_rate: Optional[float] = field(default=2e-4)
+    learning_rate: Optional[float] = field(default=1e-4)
     max_grad_norm: Optional[float] = field(default=0.3)
     weight_decay: Optional[float] = field(default=0.001)
     max_seq_length: Optional[int] = field(default=512)
@@ -97,11 +96,11 @@ class ScriptArguments:
         metadata={"help": "The optimizer to use."},
     )
     lr_scheduler_type: str = field(
-        default="constant",
+        default="cosine",
         metadata={"help": "Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis"},
     )
     max_steps: int = field(default=10000, metadata={"help": "How many optimizer update steps to take"})
-    warmup_ratio: float = field(default=0.03, metadata={"help": "Fraction of steps to do a warmup for"})
+    warmup_steps: int = field(default=50, metadata={"help": "Number of warmup steps"})
     save_steps: int = field(default=10, metadata={"help": "Save checkpoint every X updates steps."})
     eval_steps: int = field(default=10, metadata={"help": "Eval model every X steps."})
     logging_steps: int = field(default=10, metadata={"help": "Log every X updates steps."})
@@ -231,7 +230,7 @@ def main(args):
         fp16=args.fp16,
         bf16=args.bf16,
         max_grad_norm=args.max_grad_norm,
-        warmup_ratio=args.warmup_ratio,
+        warmup_steps=args.warmup_steps,
         lr_scheduler_type=args.lr_scheduler_type,
         num_train_epochs=args.num_train_epochs,
         evaluation_strategy="steps",
@@ -243,6 +242,10 @@ def main(args):
         push_to_hub=args.push_to_hub,
         gradient_checkpointing=args.use_gradient_checkpointing,
         include_tokens_per_second=True,
+        save_total_limit=1,
+        load_best_model_at_end=True,
+        metric_for_best_model="eval_loss",
+        label_names=["labels"],
     )
 
     # model
@@ -256,7 +259,8 @@ def main(args):
     data_collator = DataCollatorForSeq2Seq(tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True)
 
     # trainer
-    trainer = Trainer(model=model, args=training_arguments, train_dataset=train_dataset, eval_dataset=eval_dataset, data_collator=data_collator)
+    early_stopping_cb = EarlyStoppingCallback(early_stopping_patience=10, early_stopping_threshold=0.001)
+    trainer = Trainer(model=model, args=training_arguments, train_dataset=train_dataset, eval_dataset=eval_dataset, data_collator=data_collator, callbacks=[early_stopping_cb])
     trainer.accelerator.print(f"{trainer.model}")
     if args.use_peft_lora or args.use_peft_adalora:
         trainer.model.print_trainable_parameters()
