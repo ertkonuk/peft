@@ -35,6 +35,9 @@ GPUS_PER_NODE=${SLURM_NTASKS_PER_NODE}
 NNODES=${SLURM_JOB_NUM_NODES}
 NUM_PROCESSES=$(expr $NNODES \* $GPUS_PER_NODE)
 
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=12340
+export WORLD_SIZE=${NUM_PROCESSES}
 #grad_accum_steps=$(expr $gbs \/ $mbs) $(expr $gbs \/ $(expr $mbs \* $NUM_PROCESSES))
 grad_accum_steps=4
 # We will need this for 70B model training
@@ -45,9 +48,15 @@ grad_accum_steps=4
 #    --machine_rank \$SLURM_PROCID \
 #    --num_processes $NUM_PROCESSES \
 #    --num_machines $NNODES \
-#    --mixed_precision bf16 \
 #    "
-#export LAUNCHER="torchrun --nproc_per_node=${SLURM_NTASKS_PER_NODE}"
+
+#export LAUNCHER="torchrun \
+#	--nproc_per_node=${SLURM_NTASKS_PER_NODE} \
+#	--nnodes=${SLURM_JOB_NUM_NODES} \
+#	--rdzv_backend=c10d \
+#	--rdzv_endpoint=${MASTER_ADDR}:${MASTER_PORT} \
+#	"
+export LAUNCHER="python"
 
 read -r -d '' cmd <<EOF
 echo "*******STARTING********" \
@@ -55,14 +64,14 @@ echo "*******STARTING********" \
 && export WANDB_API_KEY=${WANDB} \
 && cd /code/peft/scripts \
 && echo "Starting training" \
-&& torchrun --nproc_per_node=${SLURM_NTASKS_PER_NODE} --nnodes=${SLURM_JOB_NUM_NODES} train.py \
+&& ${LAUNCHER} train.py \
 --model_name=${model_name} \
 --train_ds="/datasets/${task}/train.jsonl" \
 --validation_ds="/datasets/${task}/validation.jsonl" \
 --cache_dir=/hub \
 --max_seq_len=${max_seq_len} \
 --max_steps=${max_steps} \
---logging_steps=25 \
+--logging_steps=1 \
 --eval_steps=${val_check} \
 --save_steps=${save_steps} \
 --bf16=True \
@@ -70,22 +79,16 @@ echo "*******STARTING********" \
 --output_dir=${DOCKER_EXP_DIR}/training \
 --per_device_train_batch_size ${mbs} \
 --gradient_accumulation_steps ${grad_accum_steps} \
---use_peft_adalora True \
---adalora_init_r 12 \
---adalora_target_r 4 \
---adalora_beta1 0.85 \
---adalora_beta2 0.85 \
---adalora_tinit 200 \
---adalora_tfinal 1000 \
---adalora_delta_t 10 \
---adalora_orth_reg_weight 0.5 \
---lora_alpha 32 \
+--use_peft_lora True \
+--lora_r 32 \
+--lora_alpha 64 \
+--lora_dropout 0.1 \
 --lora_qkv_mlp_dense \
 --use_4bit_quantization False \
---use_nested_quant True \
+--use_nested_quant False \
 --bnb_4bit_compute_dtype "bfloat16" \
 --use_flash_attn False \
---optim adamw_torch 
+--optim adamw_torch
 EOF
 
 echo $cmd

@@ -272,7 +272,10 @@ def create_and_prepare_model(args):
 
     if args.use_4bit_quantization or args.use_8bit_quantization:
         device_map = "auto"  # {"": 0}
-
+    
+    from accelerate import Accelerator
+    device_index = Accelerator().process_index
+    device_map = {"": device_index}
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         load_in_8bit=load_in_8bit,
@@ -282,19 +285,21 @@ def create_and_prepare_model(args):
         use_auth_token=True,
         use_flash_attention_2=args.use_flash_attn,
         cache_dir=args.cache_dir,
+        torch_dtype=torch.bfloat16 if args.bf16 else torch.float16,
     )
 
     peft_config = None
     if args.use_peft_lora:
+        print('Using LoRA')
         peft_config = LoraConfig(
             lora_alpha=args.lora_alpha,
             lora_dropout=args.lora_dropout,
             r=args.lora_r,
             bias="none",
-            task_type="CAUSAL_LM",
             target_modules=args.lora_target_modules.split(","),
         )
     elif args.use_peft_adalora:
+        print('Using AdaLoRA')
         peft_config = AdaLoraConfig(
             init_r=args.adalora_init_r,
             target_r=args.adalora_target_r,
@@ -308,14 +313,16 @@ def create_and_prepare_model(args):
             target_modules=args.lora_target_modules.split(","),
             orth_reg_weight=args.adalora_orth_reg_weight,
         )
-        if (args.use_4bit_quantization or args.use_8bit_quantization) and args.use_peft_lora:
-            model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=args.use_gradient_checkpointing)
+    else:
+        peft_config = None
+    if (args.use_4bit_quantization or args.use_8bit_quantization) and args.use_peft_lora:
+        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=args.use_gradient_checkpointing)
 
-        if args.use_gradient_checkpointing:
-            model.gradient_checkpointing_enable()
+    if args.use_gradient_checkpointing:
+        model.gradient_checkpointing_enable()
 
-        model = get_peft_model(model, peft_config)
-        model.print_trainable_parameters()
+    model = get_peft_model(model, peft_config)
+    model.print_trainable_parameters()
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_auth_token=True, cache_dir=args.cache_dir)
     tokenizer.pad_token = tokenizer.eos_token
