@@ -35,6 +35,9 @@ GPUS_PER_NODE=${SLURM_NTASKS_PER_NODE}
 NNODES=${SLURM_JOB_NUM_NODES}
 NUM_PROCESSES=$(expr $NNODES \* $GPUS_PER_NODE)
 
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=12340
+export WORLD_SIZE=${NUM_PROCESSES}
 #grad_accum_steps=$(expr $gbs \/ $mbs) $(expr $gbs \/ $(expr $mbs \* $NUM_PROCESSES))
 grad_accum_steps=4
 # We will need this for 70B model training
@@ -46,6 +49,13 @@ grad_accum_steps=4
 #    --num_processes $NUM_PROCESSES \
 #    --num_machines $NNODES \
 #    "
+
+#export LAUNCHER="torchrun \
+#	--nproc_per_node=${SLURM_NTASKS_PER_NODE} \
+#	--nnodes=${SLURM_JOB_NUM_NODES} \
+#	--rdzv_backend=c10d \
+#	--rdzv_endpoint=${MASTER_ADDR}:${MASTER_PORT} \
+#	"
 export LAUNCHER="python"
 
 read -r -d '' cmd <<EOF
@@ -54,7 +64,7 @@ echo "*******STARTING********" \
 && export WANDB_API_KEY=${WANDB} \
 && cd /code/peft/scripts \
 && echo "Starting training" \
-&& python train.py \
+&& ${LAUNCHER} train.py \
 --model_name=${model_name} \
 --train_ds="/datasets/${task}/train.jsonl" \
 --validation_ds="/datasets/${task}/validation.jsonl" \

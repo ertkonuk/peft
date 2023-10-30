@@ -57,7 +57,7 @@ class ScriptArguments:
     #    metadata={"help": "The preference dataset to use."},
     #)
     use_4bit: Optional[bool] = field(
-        default=True,
+        default=False,
         metadata={"help": "Activate 4bit precision base model loading"},
     )
     use_nested_quant: Optional[bool] = field(
@@ -81,7 +81,7 @@ class ScriptArguments:
         metadata={"help": "Enables fp16 training."},
     )
     bf16: Optional[bool] = field(
-        default=False,
+        default=True,
         metadata={"help": "Enables bf16 training."},
     )
     packing: Optional[bool] = field(
@@ -89,7 +89,7 @@ class ScriptArguments:
         metadata={"help": "Use packing dataset creating."},
     )
     gradient_checkpointing: Optional[bool] = field(
-        default=True,
+        default=False,
         metadata={"help": "Enables gradient checkpointing."},
     )
     optim: Optional[str] = field(
@@ -127,12 +127,11 @@ class ScriptArguments:
         default=False,
         metadata={"help": "If True, pushes the model to the HF Hub"},
     )
-    num_workers: int = field(default=4, metadata={"help": "Number of dataset workers to use."})
+    num_workers: int = field(default=16, metadata={"help": "Number of dataset workers to use."})
     debug: Optional[bool] = field(
         default=False,
         metadata={"help": "If True, tests things like proper saving/loading/logging of model"},
     )
-
     prompt_template: Optional[str] = field(
         default="{input} {output}",
         metadata={
@@ -149,27 +148,22 @@ class ScriptArguments:
         default=False,
         metadata={"help": "Compute loss only on answers"},
     )
-
     cache_dir: Optional[str] = field(
         default="/models",
         metadata={"help": "The Hugging Face cache dir for hub. Usuall ~/.cache/huggingface/hub for local."},
     )
-
     train_ds: Optional[str] = field(
         default="datasets/squad_train.jsonl",
         metadata={"help": "The training dataset in JSONL format"},
     )
-
     validation_ds: Optional[str] = field(
         default="datasets/squad_validation.jsonl",
         metadata={"help": "The validation dataset in JSONL format"},
     )
-
     add_eos_token: Optional[bool] = field(
         default=False,
         metadata={"help": "Add EOS token at the end of each traininf sequence."},
     )
-    
     # PEFT parameters
     use_peft_lora: Optional[bool] = field(
         default=False,

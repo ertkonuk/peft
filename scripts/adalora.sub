@@ -45,8 +45,9 @@ grad_accum_steps=4
 #    --machine_rank \$SLURM_PROCID \
 #    --num_processes $NUM_PROCESSES \
 #    --num_machines $NNODES \
+#    --mixed_precision bf16 \
 #    "
-export LAUNCHER="python"
+#export LAUNCHER="torchrun --nproc_per_node=${SLURM_NTASKS_PER_NODE}"
 
 read -r -d '' cmd <<EOF
 echo "*******STARTING********" \
@@ -54,7 +55,7 @@ echo "*******STARTING********" \
 && export WANDB_API_KEY=${WANDB} \
 && cd /code/peft/scripts \
 && echo "Starting training" \
-&& python train.py \
+&& torchrun --nproc_per_node=${SLURM_NTASKS_PER_NODE} --nnodes=${SLURM_JOB_NUM_NODES} train.py \
 --model_name=${model_name} \
 --train_ds="/datasets/${task}/train.jsonl" \
 --validation_ds="/datasets/${task}/validation.jsonl" \
