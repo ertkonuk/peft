@@ -18,16 +18,18 @@ task=$1
 gbs=$2
 mbs=$3
 lr=$4
-val_check=10
+master_port=$5
+grad_accum_steps=$6
+val_check=$7
+adapter_dim=$8
+save_steps=${val_check}
 max_steps=2000
-save_steps=10
 max_seq_len=2048
-adapter_dim=32
 
 # force crashing on nccl issues like hanging broadcast
 export NCCL_ASYNC_ERROR_HANDLING=1
 
-proj_name="${task}_lora"
+proj_name="${task}_llama2_7b_hf"
 exp_name=`echo $SLURM_JOB_NAME | cut -d':' -f2-`
 DATE=$(date "+%Y-%m-%d_%H-%M-%S")
 DOCKER_EXP_DIR="/experiments/${proj_name}/${exp_name}/${DATE}"
@@ -40,10 +42,9 @@ NNODES=${SLURM_JOB_NUM_NODES}
 NUM_PROCESSES=$(expr $NNODES \* $GPUS_PER_NODE)
 
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
-export MASTER_PORT=12340
+export MASTER_PORT=${master_port}
 export WORLD_SIZE=${NUM_PROCESSES}
 #grad_accum_steps=$(expr $gbs \/ $mbs) $(expr $gbs \/ $(expr $mbs \* $NUM_PROCESSES))
-grad_accum_steps=4
 # We will need this for 70B model training
 #export LAUNCHER="accelerate launch \
 #    --mixed_precision 'bf16' \

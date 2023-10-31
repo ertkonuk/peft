@@ -5,7 +5,7 @@ from torch.utils.data import Dataset, IterableDataset
 from datasets import load_dataset
 from tqdm import tqdm
 import warnings
-from peft import LoraConfig, AdaLoraConfig, get_peft_model, prepare_model_for_kbit_training
+from peft import LoraConfig, AdaLoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel
 from peft.tuners.lora import LoraLayer
 from transformers import (
     AutoModelForCausalLM,
@@ -341,3 +341,71 @@ def peft_module_casting_to_bf16(model, args):
             if hasattr(module, "weight"):
                 if args.bf16 and module.weight.dtype == torch.float32:
                     module = module.to(torch.bfloat16)
+
+                    
+def restore_peft_model(args):
+    device_map = None
+    bnb_config = None
+    load_in_8bit = args.use_8bit_quantization
+
+    if args.use_4bit_quantization:
+        compute_dtype = getattr(torch, args.bnb_4bit_compute_dtype)
+
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=args.use_4bit_quantization,
+            bnb_4bit_quant_type=args.bnb_4bit_quant_type,
+            bnb_4bit_compute_dtype=compute_dtype,
+            bnb_4bit_use_double_quant=args.use_nested_quant,
+        )
+
+        if compute_dtype == torch.float16 and args.use_4bit_quantization:
+            major, _ = torch.cuda.get_device_capability()
+            if major >= 8:
+                print("=" * 80)
+                print("Your GPU supports bfloat16, you can accelerate training with the argument --bf16")
+                print("=" * 80)
+
+    if args.use_4bit_quantization or args.use_8bit_quantization:
+        device_map = "auto"  # {"": 0}
+    
+    from accelerate import Accelerator
+    device_index = Accelerator().process_index
+    device_map = {"": device_index}
+    base_model = AutoModelForCausalLM.from_pretrained(
+        args.model_name,
+        load_in_8bit=load_in_8bit,
+        quantization_config=bnb_config,
+        device_map=device_map,
+        use_cache=not args.use_gradient_checkpointing,
+        use_auth_token=True,
+        use_flash_attention_2=args.use_flash_attn,
+        cache_dir=args.cache_dir,
+        torch_dtype=torch.bfloat16 if args.bf16 else torch.float16,
+    )
+    
+    model = PeftModel.from_pretrained(base_model, args.peft_model_name)
+    model = model.merge_and_unload()
+
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_auth_token=True, cache_dir=args.cache_dir)
+    tokenizer.pad_token = tokenizer.eos_token
+
+    return model, tokenizer
+
+def create_test_dataset(tokenizer, args):
+    if args.test_ds.endswith(".json") or args.test_ds.endswith(".jsonl"):
+        test_data = load_dataset("json", data_files=args.test_ds, split="train")
+    else:
+        test_data = load_dataset(args.test_ds, split="test")
+    
+
+    print(f"Size of the test set: {len(test_data)}.")
+    test_dataset = SFTDataset(
+        tokenizer=tokenizer,
+        dataset=test_data,
+        max_length=args.max_seq_length,
+        add_eos_token=args.add_eos_token,
+        answer_only_loss=args.answer_only_loss,
+        prompt_template=args.prompt_template,
+        label_key=args.label_key,
+    )
+    return test_dataset

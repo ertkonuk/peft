@@ -16,9 +16,11 @@ from dataclasses import dataclass, field
 import os
 import subprocess
 from typing import Optional
-from transformers import HfArgumentParser, TrainingArguments, Trainer, DataCollatorForSeq2Seq, EarlyStoppingCallback
+from transformers import HfArgumentParser, TrainingArguments, Trainer, DataCollatorForSeq2Seq, EvalPrediction
 from utils import *
-
+from evaluate import load
+import numpy as np
+from datasets import load_dataset
 ########################################################################
 # This is a fully working simple example to use trl's RewardTrainer.
 #
@@ -46,15 +48,17 @@ class ScriptArguments:
     weight_decay: Optional[float] = field(default=0.001)
     max_seq_length: Optional[int] = field(default=512)
     model_name: Optional[str] = field(
-            default="meta-llama/Llama-2-7b-hf",
+        default="meta-llama/Llama-2-7b-hf",
         metadata={
-            "help": "The model that you want to train from the Hugging Face hub. E.g. gpt2, gpt2-xl, bert, etc."
+            "help": "The model that you want to evaluate from the Hugging Face hub. E.g. gpt2, gpt2-xl, bert, etc."
         },
     )
-    #dataset_name: Optional[str] = field(
-    #    default="timdettmers/openassistant-guanaco",
-    #    metadata={"help": "The preference dataset to use."},
-    #)
+    peft_model_name: Optional[str] = field(
+        default="awesome_lora_model",
+        metadata={
+            "help": "The trained PEFT model."
+        },
+    )
     use_4bit: Optional[bool] = field(
         default=False,
         metadata={"help": "Activate 4bit precision base model loading"},
@@ -152,13 +156,9 @@ class ScriptArguments:
         default="/models",
         metadata={"help": "The Hugging Face cache dir for hub. Usuall ~/.cache/huggingface/hub for local."},
     )
-    train_ds: Optional[str] = field(
-        default="datasets/squad_train.jsonl",
+    test_ds: Optional[str] = field(
+        default="None",
         metadata={"help": "The training dataset in JSONL format"},
-    )
-    validation_ds: Optional[str] = field(
-        default="datasets/squad_validation.jsonl",
-        metadata={"help": "The validation dataset in JSONL format"},
     )
     add_eos_token: Optional[bool] = field(
         default=False,
@@ -215,6 +215,10 @@ class ScriptArguments:
     lora_qkv: Optional[bool] = field(default=False)
     lora_qkv_mlp: Optional[bool] = field(default=False)
     lora_qkv_mlp_dense: Optional[bool] = field(default=False)
+    
+    # Evaluation arguments
+    task: str = field(default="squad", metadata={"help": "The name of the task to evaluate."})
+    
 
 def main(args):
     # training arguments
@@ -224,92 +228,50 @@ def main(args):
     save_strategy = "no" if is_deepspeed_peft_enabled else "steps"
     training_arguments = TrainingArguments(
         output_dir=args.output_dir,
+        logging_dir=args.output_dir,
         per_device_train_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
-        optim=args.optim,
-        learning_rate=args.learning_rate,
-        fp16=args.fp16,
-        bf16=args.bf16,
-        max_grad_norm=args.max_grad_norm,
-        warmup_steps=args.warmup_steps,
-        lr_scheduler_type=args.lr_scheduler_type,
-        num_train_epochs=args.num_train_epochs,
-        evaluation_strategy="steps",
-        save_strategy=save_strategy,
-        max_steps=args.max_steps,
-        eval_steps=args.eval_steps,
-        save_steps=args.save_steps,
         logging_steps=args.logging_steps,
-        push_to_hub=args.push_to_hub,
-        gradient_checkpointing=args.use_gradient_checkpointing,
-        include_tokens_per_second=True,
-        save_total_limit=1,
-        load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
-        label_names=["labels"],
-        run_name=args.wandb_run_name,
+        do_eval=True,
     )
 
     # model
-    model, peft_config, tokenizer = create_and_prepare_model(args)
+    model, tokenizer = restore_peft_model(args)
     model.config.use_cache = False
 
     # datasets
-    train_dataset, eval_dataset = create_datasets(tokenizer, args)
-    
+    test_data = load_dataset("json", data_files=args.test_ds, split="train")
+    def tokenize_function(examples):
+        return tokenizer(examples['input'], truncation=True, padding='max_length', max_length=args.max_seq_length)
+
+    test_dataset = test_data.map(tokenize_function, batched=True)
+
     # data collator
     data_collator = DataCollatorForSeq2Seq(tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True)
+    
+    # metrics
+    if args.task == "squad":
+        metric = load('squad')
+    else:
+        metric = load('super_glue_benchmark', args.task)
+    
+    def compute_metrics(eval_pred):
+        logits, labels = eval_pred
+        predictions = np.argmax(logits, axis=-1)
+        print(f'predictions: {predictions.shape} labels={labels.shape}')
+        return metric.compute(predictions=predictions, references=labels)
 
     # trainer
-    early_stopping_cb = EarlyStoppingCallback(early_stopping_patience=10, early_stopping_threshold=0.001)
-    trainer = Trainer(model=model, args=training_arguments, train_dataset=train_dataset, eval_dataset=eval_dataset, data_collator=data_collator, callbacks=[early_stopping_cb])
+    #trainer = Trainer(model=model, args=training_arguments, eval_dataset=test_dataset, data_collator=data_collator, compute_metrics=compute_metrics)
+    trainer = Trainer(model=model, args=training_arguments, eval_dataset=test_dataset, compute_metrics=compute_metrics)
     trainer.accelerator.print(f"{trainer.model}")
-    if args.use_peft_lora or args.use_peft_adalora:
-        trainer.model.print_trainable_parameters()
-
-    if is_deepspeed_peft_enabled:
-        trainer.add_callback(SaveDeepSpeedPeftModelCallback(trainer, save_steps=args.save_steps))
 
     if args.use_peft_lora or args.use_peft_adalora:
         peft_module_casting_to_bf16(trainer.model, args)
 
-    # train
-    trainer.train()
-
-    # saving final model
-    if trainer.is_fsdp_enabled:
-        trainer.accelerator.state.fsdp_plugin.set_state_dict_type("FULL_STATE_DICT")
-
-    if is_deepspeed_peft_enabled:
-        trainer.accelerator.wait_for_everyone()
-        state_dict = trainer.accelerator.get_state_dict(trainer.deepspeed)
-        unwrapped_model = trainer.accelerator.unwrap_model(trainer.deepspeed)
-        if trainer.accelerator.is_main_process:
-            unwrapped_model.save_pretrained(args.output_dir, state_dict=state_dict)
-        trainer.accelerator.wait_for_everyone()
-    else:
-        if args.push_to_hub:
-            trainer.push_to_hub()
-            if args.use_peft_lora:
-                trainer.model.push_to_hub(args.output_dir)
-        else:
-            trainer.save_model(args.output_dir)
-
-    # Save everything else on main process
-    if trainer.args.process_index == 0:
-        print("Sharding model if >10GB...")
-        # FSDP/DeepSpeed save the model as a single `pytorch_model.bin` file, so we need to shard it.
-        # We run this in a subprocess to avoid interference from the accelerators.
-        subprocess.run(
-            [
-                "python",
-                "shard_checkpoint.py",
-                f"--output_dir={args.output_dir}",
-            ],
-            check=True,
-        )
-        if "training_args.bin" in os.listdir(args.output_dir):
-            os.remove(os.path.join(args.output_dir, "training_args.bin"))
+    # evaluate
+    metrics = trainer.evaluate()
+    print(f'metrics: {metrics}')
 
 def sanity_check(args):
     # Allow either just LoRA or AdaLoRA
