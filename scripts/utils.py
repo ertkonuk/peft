@@ -273,9 +273,9 @@ def create_and_prepare_model(args):
     if args.use_4bit_quantization or args.use_8bit_quantization:
         device_map = "auto"  # {"": 0}
     
-    from accelerate import Accelerator
-    device_index = Accelerator().process_index
-    device_map = {"": device_index}
+    #from accelerate import Accelerator
+    #device_index = Accelerator().process_index
+    #device_map = {"": device_index}
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         load_in_8bit=load_in_8bit,
