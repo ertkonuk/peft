@@ -3,8 +3,10 @@
 #SBATCH -p batch_singlenode,batch_block1,batch_block3,batch_block2,batch_block4 # luna / backfill / interactive
 #SBATCH -N 1                   # number of nodes
 #SBATCH -t 4:00:00              # wall time  (4 for luna, 8 for backfill, 2 for interactive)
-#SBATCH -J llmservice_modelalignment_ptune:peft.lora.llama-2-7b-hf-boolq  # job name (<< CHANGE ! >>)
+#SBATCH -J llmservice_modelalignment_ptune:peft.lora.llama-2-7b-hf  # job name (<< CHANGE ! >>)
 #SBATCH --ntasks-per-node=8     # n tasks per machine (one task per gpu) <required>
+#SBATCH --gpus-per-node=8     # n gpus per machine <required>
+#SBATCH --gres=gpu:8            # Specify the number of GPUs even if exclusive. Needed for pytorch
 #SBATCH  --mail-type=BEGIN,END,FAIL
 
 source containers.sh
@@ -12,18 +14,22 @@ export HYDRA_FULL_ERROR=1
 
 # training params
 model_name="meta-llama/Llama-2-7b-hf"
-task="boolq"
-gbs=128
-mbs=1
+task=$1
+gbs=$2
+mbs=$3
+lr=$4
+master_port=$5
+grad_accum_steps=$6
+val_check=$7
+adapter_dim=$8
+save_steps=${val_check}
 max_steps=2000
-val_check=100
-save_steps=500
 max_seq_len=2048
 
 # force crashing on nccl issues like hanging broadcast
 export NCCL_ASYNC_ERROR_HANDLING=1
 
-proj_name="${task}_lora"
+proj_name="${task}_llama2_7b_hf"
 exp_name=`echo $SLURM_JOB_NAME | cut -d':' -f2-`
 DATE=$(date "+%Y-%m-%d_%H-%M-%S")
 DOCKER_EXP_DIR="/experiments/${proj_name}/${exp_name}/${DATE}"
@@ -36,13 +42,12 @@ NNODES=${SLURM_JOB_NUM_NODES}
 NUM_PROCESSES=$(expr $NNODES \* $GPUS_PER_NODE)
 
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
-export MASTER_PORT=12340
+export MASTER_PORT=${master_port}
 export WORLD_SIZE=${NUM_PROCESSES}
 #grad_accum_steps=$(expr $gbs \/ $mbs) $(expr $gbs \/ $(expr $mbs \* $NUM_PROCESSES))
-grad_accum_steps=4
 # We will need this for 70B model training
 #export LAUNCHER="accelerate launch \
-#    --config_file configs/fsdp_config.yaml \
+#    --mixed_precision 'bf16' \
 #    --main_process_ip $MASTER_ADDR \
 #    --main_process_port $MASTER_PORT \
 #    --machine_rank \$SLURM_PROCID \
@@ -69,26 +74,27 @@ echo "*******STARTING********" \
 --train_ds="/datasets/${task}/train.jsonl" \
 --validation_ds="/datasets/${task}/validation.jsonl" \
 --cache_dir=/hub \
+--learning_rate=${lr} \
+--lr_scheduler_type="cosine" \
+--warmup_steps=50 \
 --max_seq_len=${max_seq_len} \
 --max_steps=${max_steps} \
 --logging_steps=1 \
 --eval_steps=${val_check} \
 --save_steps=${save_steps} \
 --bf16=True \
---packing=True \
+--packing=False \
 --output_dir=${DOCKER_EXP_DIR}/training \
---per_device_train_batch_size ${mbs} \
---gradient_accumulation_steps ${grad_accum_steps} \
---use_peft_lora True \
---lora_r 32 \
---lora_alpha 64 \
---lora_dropout 0.1 \
---lora_qkv_mlp_dense \
---use_4bit_quantization False \
---use_nested_quant False \
---bnb_4bit_compute_dtype "bfloat16" \
---use_flash_attn False \
---optim adamw_torch
+--per_device_train_batch_size=${mbs} \
+--gradient_accumulation_steps=${grad_accum_steps} \
+--use_peft_lora=True \
+--lora_r=${adapter_dim} \
+--lora_alpha=1 \
+--lora_dropout=0. \
+--use_flash_attn=True \
+--optim=adamw_torch_fused \
+--wandb_run_name=${exp_name} \
+--lora_qkv
 EOF
 
 echo $cmd
