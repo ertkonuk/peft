@@ -1,15 +1,11 @@
 task=cb
-peft_model='/workspace/mount_dir/tied-lora/experiments/cb_lora/peft.lora.llama-2-7b-hf/2023-10-30_15-31-22/training/'
-python eval.py \
+peft_model='/workspace/mount_dir/tied-lora/experiments/cb_llama2_7b_hf/superglue_lora_cb_1e-4_8_1_10/2023-10-30_20-17-50/training/'
+python peft_model_evaluate.py \
+--output_file=/workspace/mount_dir/tied-lora/results/test.jsonl \
 --model_name="meta-llama/Llama-2-7b-hf" \
 --peft_model_name=${peft_model} \
 --test_ds=/workspace/mount_dir/tied-lora/datasets/${task}/test.jsonl \
 --cache_dir=/workspace/mount_dir/tied-lora/huggingface/hub/ \
---max_seq_len=2048 \
---logging_steps=1 \
+--max_new_tokens=4 \
 --bf16=True \
---packing=False \
---output_dir=/workspace/mount_dir/tied-lora/experiments/${task}_lora/interactive \
---per_device_train_batch_size=1 \
---gradient_accumulation_steps=1 \
 --use_flash_attn True

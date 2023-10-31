@@ -248,6 +248,7 @@ def main(args):
         metric_for_best_model="eval_loss",
         label_names=["labels"],
         run_name=args.wandb_run_name,
+        group_by_length=False,
     )
 
     # model
