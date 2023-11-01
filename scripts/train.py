@@ -161,7 +161,7 @@ class ScriptArguments:
         metadata={"help": "The validation dataset in JSONL format"},
     )
     add_eos_token: Optional[bool] = field(
-        default=False,
+        default=True,
         metadata={"help": "Add EOS token at the end of each traininf sequence."},
     )
     # PEFT parameters
@@ -248,6 +248,7 @@ def main(args):
         metric_for_best_model="eval_loss",
         label_names=["labels"],
         run_name=args.wandb_run_name,
+        group_by_length=False,
     )
 
     # model

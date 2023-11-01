@@ -1,0 +1,63 @@
+#!/bin/bash
+#SBATCH -A llmservice_modelalignment_ptune
+#SBATCH -p batch_singlenode,batch_block1,batch_block3,batch_block2,batch_block4 # luna / backfill / interactive
+#SBATCH -N 1                   # number of nodes
+#SBATCH -t 4:00:00              # wall time  (4 for luna, 8 for backfill, 2 for interactive)
+#SBATCH -J llmservice_modelalignment_ptune:peft.lora.llama-2-7b-hf  # job name (<< CHANGE ! >>)
+#SBATCH --ntasks-per-node=1     # n tasks per machine (one task per gpu) <required>
+#SBATCH --gpus-per-node=1     # n gpus per machine <required>
+#SBATCH --gres=gpu:1            # Specify the number of GPUs even if exclusive. Needed for pytorch
+#SBATCH  --mail-type=BEGIN,END,FAIL
+
+source containers.sh
+export HYDRA_FULL_ERROR=1
+
+# training params
+model_name="meta-llama/Llama-2-7b-hf"
+task=$1
+peft_model_name=$2
+max_new_tokens=$3
+master_port=$4
+max_seq_len=2048
+logging_steps=10
+# force crashing on nccl issues like hanging broadcast
+export NCCL_ASYNC_ERROR_HANDLING=1
+
+proj_name="${task}_eval_llama2_7b_hf"
+exp_name=`echo $SLURM_JOB_NAME | cut -d':' -f2-`
+DATE=$(date "+%Y-%m-%d_%H-%M-%S")
+DOCKER_EXP_DIR="/experiments/${proj_name}/${exp_name}/${DATE}"
+EXP_DIR="$PROJHOME/${DOCKER_EXP_DIR}"
+echo $proj_name $exp_name $EXP_DIR
+mkdir -p $EXP_DIR
+
+GPUS_PER_NODE=${SLURM_NTASKS_PER_NODE}
+NNODES=${SLURM_JOB_NUM_NODES}
+NUM_PROCESSES=$(expr $NNODES \* $GPUS_PER_NODE)
+
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=${master_port}
+export WORLD_SIZE=${NUM_PROCESSES}
+
+
+read -r -d '' cmd <<EOF
+echo "*******STARTING********" \
+&& huggingface-cli login --token ${HF_TOKEN} \
+&& export WANDB_API_KEY=${WANDB} \
+&& cd /code/peft/scripts \
+&& echo "Starting training" \
+&& python peft_model_evaluate.py \
+--model_name=${model_name} \
+--peft_model_name=${peft_model_name} \
+--output_file=${DOCKER_EXP_DIR}/evaluation/predictions.jsonl \
+--test_ds="/datasets/${task}/test.jsonl" \
+--cache_dir=/hub \
+--max_new_tokens=${max_new_tokens} \
+--use_flash_attn=True \
+--wandb_run_name=${exp_name}
+EOF
+
+echo $cmd
+
+srun -o ${EXP_DIR}/slurm-peft-%j-%n.out -e ${EXP_DIR}/slurm-peft-%j-%n.err --no-container-mount-home --container-image="$CONTAINER" $MOUNTS bash -c "${cmd}"
+set +x
