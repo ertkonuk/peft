@@ -161,7 +161,7 @@ class ScriptArguments:
         metadata={"help": "The validation dataset in JSONL format"},
     )
     add_eos_token: Optional[bool] = field(
-        default=False,
+        default=True,
         metadata={"help": "Add EOS token at the end of each traininf sequence."},
     )
     # PEFT parameters

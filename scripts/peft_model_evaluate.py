@@ -149,7 +149,7 @@ def main(args):
                 print(f'Predicting sample: {idx}')
             input_text = sample["input"]
             original_answers = sample["output"]
-            output = generator(input_text, max_new_tokens=args.max_new_tokens, num_return_sequences=1, do_sample=False, temperature=0.)[0]["generated_text"]
+            output = generator(input_text, max_new_tokens=args.max_new_tokens, num_return_sequences=1, do_sample=False, temperature=0., eos_token_id=tokenizer.eos_token_id)[0]["generated_text"]
             response = output.replace(input_text, "")
             file.write(json.dumps({'input': input_text,'original_answers': original_answers,'pred': response}) + '\n')
 

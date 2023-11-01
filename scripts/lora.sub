@@ -22,10 +22,11 @@ master_port=$5
 grad_accum_steps=$6
 val_check=$7
 adapter_dim=$8
+lora_alpha=$9
 save_steps=${val_check}
 max_steps=2000
 max_seq_len=2048
-
+logging_steps=10
 # force crashing on nccl issues like hanging broadcast
 export NCCL_ASYNC_ERROR_HANDLING=1
 
@@ -47,7 +48,7 @@ export WORLD_SIZE=${NUM_PROCESSES}
 #grad_accum_steps=$(expr $gbs \/ $mbs) $(expr $gbs \/ $(expr $mbs \* $NUM_PROCESSES))
 # We will need this for 70B model training
 #export LAUNCHER="accelerate launch \
-#    --mixed_precision 'bf16' \
+#    --mixed_precision=bf16 \
 #    --main_process_ip $MASTER_ADDR \
 #    --main_process_port $MASTER_PORT \
 #    --machine_rank \$SLURM_PROCID \
@@ -58,9 +59,11 @@ export WORLD_SIZE=${NUM_PROCESSES}
 #export LAUNCHER="torchrun \
 #	--nproc_per_node=${SLURM_NTASKS_PER_NODE} \
 #	--nnodes=${SLURM_JOB_NUM_NODES} \
+#	--rdzv_id $RANDOM \
 #	--rdzv_backend=c10d \
 #	--rdzv_endpoint=${MASTER_ADDR}:${MASTER_PORT} \
 #	"
+
 export LAUNCHER="python"
 
 read -r -d '' cmd <<EOF
@@ -79,7 +82,7 @@ echo "*******STARTING********" \
 --warmup_steps=50 \
 --max_seq_len=${max_seq_len} \
 --max_steps=${max_steps} \
---logging_steps=1 \
+--logging_steps=${logging_steps} \
 --eval_steps=${val_check} \
 --save_steps=${save_steps} \
 --bf16=True \
@@ -89,11 +92,13 @@ echo "*******STARTING********" \
 --gradient_accumulation_steps=${grad_accum_steps} \
 --use_peft_lora=True \
 --lora_r=${adapter_dim} \
---lora_alpha=1 \
+--lora_alpha=${lora_alpha} \
 --lora_dropout=0. \
 --use_flash_attn=True \
 --optim=adamw_torch_fused \
 --wandb_run_name=${exp_name} \
+--add_eos_token=True \
+--answer_only_loss=False \
 --lora_qkv
 EOF
 
