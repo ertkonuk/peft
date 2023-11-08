@@ -70,7 +70,7 @@ def process_data(file_path):
 
     return main_dict
 
-# Assuming the file path is "/mnt/data/data.txt"
+# Input file with potentially results from multiple tasks
 file_path = "rte.out.try20.txt"
 exp_dict = process_data(file_path)
 
