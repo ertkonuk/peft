@@ -43,7 +43,7 @@ class ScriptArguments:
     gradient_accumulation_steps: Optional[int] = field(default=4)
     learning_rate: Optional[float] = field(default=1e-4)
     max_grad_norm: Optional[float] = field(default=0.3)
-    weight_decay: Optional[float] = field(default=0.001)
+    weight_decay: Optional[float] = field(default=0.01)
     max_seq_length: Optional[int] = field(default=512)
     model_name: Optional[str] = field(
             default="meta-llama/Llama-2-7b-hf",
@@ -99,7 +99,7 @@ class ScriptArguments:
         default="cosine",
         metadata={"help": "Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis"},
     )
-    max_steps: int = field(default=10000, metadata={"help": "How many optimizer update steps to take"})
+    max_steps: int = field(default=-1, metadata={"help": "How many optimizer update steps to take"})
     warmup_steps: int = field(default=50, metadata={"help": "Number of warmup steps"})
     save_steps: int = field(default=10, metadata={"help": "Save checkpoint every X updates steps."})
     eval_steps: int = field(default=10, metadata={"help": "Eval model every X steps."})
