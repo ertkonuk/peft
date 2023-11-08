@@ -99,5 +99,5 @@ for task in exp_dict.keys():
         plt.grid("on")
         plt.title(task)
     plt.legend(experiments, loc="lower right", fontsize=8)
-plt.savefig(f"{task}.png")
+plt.savefig(f"{task}.png", dpi=300)
 #tikzplotlib.save("test.tex")
