@@ -56,7 +56,9 @@ for subset in subsets:
 
         if split == "train":
             split_dataset = dataset.train_test_split(test_size=0.05, seed=1234)
-            save_splits['train'] = split_dataset['train']
+            save_splits['train'] = split_dataset['train'].shuffle(seed=1234)
+            save_splits['train1'] = split_dataset['train'].shuffle(seed=123)
+            save_splits['train2'] = split_dataset['train'].shuffle(seed=12)
             save_splits['validation'] = split_dataset['test']
         elif split == "validation":
             save_splits['test'] = dataset
